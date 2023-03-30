@@ -15,11 +15,15 @@ import org.springframework.batch.item.file.LineMapper;
 import org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper;
 import org.springframework.batch.item.file.mapping.DefaultLineMapper;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
+import org.springframework.batch.item.support.CompositeItemProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Configuration
 @EnableBatchProcessing
@@ -32,8 +36,9 @@ public class SpringBatchConfig {
     public ItemReader<BankTransaction> bankTransactionItemReader;
     @Autowired
     private ItemWriter<BankTransaction> bankTransactionItemWriter;
-    @Autowired
-    private ItemProcessor<BankTransaction, BankTransaction> bankTransactionBankTransactionItemProcessor;
+
+    // @Autowired
+    // private ItemProcessor<BankTransaction, BankTransaction> bankTransactionBankTransactionItemProcessor;
 
     @Bean
     public Job bankJob(){
@@ -41,12 +46,33 @@ public class SpringBatchConfig {
                 .<BankTransaction, BankTransaction>chunk(100)
                 .reader(bankTransactionItemReader)
                 .writer(bankTransactionItemWriter)
-                .processor(bankTransactionBankTransactionItemProcessor)
+                //.processor(bankTransactionBankTransactionItemProcessor)
+                .processor(compositeItemProcessor())
                 .build();
         return jobBuilderFactory.get("bank-data-loader-job")
                 .incrementer(new RunIdIncrementer())
                 .start(step1)
                 .build();
+    }
+
+    @Bean
+    public ItemProcessor<BankTransaction, BankTransaction> compositeItemProcessor() {
+        List<ItemProcessor<BankTransaction, BankTransaction>> itemProcessorList = new ArrayList<>();
+        itemProcessorList.add(itemProcessor1());
+        itemProcessorList.add(itemProcessor2());
+        CompositeItemProcessor<BankTransaction, BankTransaction> compositeItemProcessor = new CompositeItemProcessor<>();
+        compositeItemProcessor.setDelegates(itemProcessorList);
+        return compositeItemProcessor;
+    }
+
+    @Bean
+    public BankTransactionItemProcessor itemProcessor1(){
+        return new BankTransactionItemProcessor();
+    }
+
+    @Bean
+    public BankTransactionItemAnalyticsProcessor itemProcessor2(){
+        return new BankTransactionItemAnalyticsProcessor();
     }
 
     @Bean
